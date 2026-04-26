@@ -1,0 +1,15 @@
+{
+  "//": "Copy this file to appsettings.Development.json and fill in real values. The .Development.json file is gitignored.",
+  "AzureOpenAI": {
+    "Endpoint": "https://your-resource.cognitiveservices.azure.com/",
+    "ApiKey": "REPLACE_WITH_REAL_KEY",
+    "DefaultDeployment": "gpt-5.4",
+    "ApiVersion": "2025-04-01-preview"
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Archer": "Debug"
+    }
+  }
+}

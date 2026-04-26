@@ -1,0 +1,29 @@
+name: trello
+description: Trello workspace via @delorenj/mcp-server-trello (spawned over stdio).
+
+# Archer spawns the MCP server itself — no docker, no separate process to start.
+# bunx is preferred (faster cold start than npx); fallback to npx if you don't have bun.
+transport:
+  type: stdio
+  command: bunx
+  args:
+    - "-y"
+    - "@delorenj/mcp-server-trello"
+  env:
+    # Credentials are resolved at connect time from the encrypted credential store.
+    # Set them via:  archer mcp credentials set trello --api-key <KEY> --token <TOKEN>
+    # (or programmatically via ICredentialStore.SaveAsync in tests / scripts).
+    TRELLO_API_KEY: ${cred:apiKey.key}
+    TRELLO_TOKEN: ${cred:apiKey.token}
+
+auth:
+  type: api-key
+
+timeouts:
+  connectSeconds: 30
+  callSeconds: 60
+
+retry:
+  maxAttempts: 3
+  initialDelayMs: 500
+  backoff: exponential

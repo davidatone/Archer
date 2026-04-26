@@ -1,0 +1,19 @@
+name: simplemem
+description: |
+  Long-term semantic memory via SimpleMem's cloud MCP server.
+  Sign up at https://mcp.simplemem.cloud to get an access token, then run:
+    archer mcp credentials set simplemem --bearer
+  (token is read from stdin — paste it and press Enter)
+
+# Streamable HTTP against the cloud endpoint. For self-hosted deployments,
+# point endpoint at your own SimpleMem MCP server URL.
+transport:
+  type: streamable-http
+  endpoint: https://mcp.simplemem.cloud/mcp
+
+auth:
+  type: bearer
+
+timeouts:
+  connectSeconds: 30
+  callSeconds: 60

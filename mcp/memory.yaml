@@ -1,0 +1,23 @@
+name: memory
+description: |
+  Knowledge-graph memory via @modelcontextprotocol/server-memory.
+  Persists entities, relations, and observations to a local JSON file. Survives
+  process restarts so a fresh agent session can recall prior findings.
+
+transport:
+  type: stdio
+  command: npx
+  args:
+    - "-y"
+    - "@modelcontextprotocol/server-memory"
+  env:
+    # Persist outside the repo so the same memory follows you across worktrees.
+    # Override by exporting MEMORY_FILE_PATH before launching Archer.
+    MEMORY_FILE_PATH: ${env:HOME}/.config/archer/memory.json
+
+auth:
+  type: none
+
+timeouts:
+  connectSeconds: 30
+  callSeconds: 30

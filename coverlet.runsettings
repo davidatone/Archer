@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat code coverage">
+        <Configuration>
+          <Format>opencover,cobertura</Format>
+          <Exclude>[xunit*]*,[*Tests]*,[*]System.Text.RegularExpressions.Generated.*,[archer-tui]Program,[Archer.AppHost]Program</Exclude>
+          <ExcludeByFile>**/obj/**/*.cs,**/src/Archer.Tui/Program.cs,**/src/Aspire/Program.cs</ExcludeByFile>
+          <ExcludeByAttribute>ExcludeFromCodeCoverage,ExcludeFromCodeCoverageAttribute</ExcludeByAttribute>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>

@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>archer-tui</AssemblyName>
+    <RootNamespace>Archer.Tui</RootNamespace>
+    <NoWarn>$(NoWarn);CA1031;CA2007</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Archer.Tui.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\Archer.Cli\appsettings.json" Link="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\Archer.Cli\appsettings.Development.json" Condition="Exists('..\Archer.Cli\appsettings.Development.json')" Link="appsettings.Development.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\agents\*.yaml" Link="agents\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\mcp\*.yaml" Link="mcp\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Archer.Domain\Archer.Domain.csproj" />
+    <ProjectReference Include="..\Archer.Application\Archer.Application.csproj" />
+    <ProjectReference Include="..\Archer.Host\Archer.Host.csproj" />
+    <ProjectReference Include="..\Archer.Actors\Archer.Actors.csproj" />
+    <ProjectReference Include="..\Archer.Events\Archer.Events.csproj" />
+    <ProjectReference Include="..\Archer.Persistence\Archer.Persistence.csproj" />
+    <ProjectReference Include="..\Archer.Tools\Archer.Tools.csproj" />
+    <ProjectReference Include="..\Archer.Model\Archer.Model.csproj" />
+    <ProjectReference Include="..\Archer.Mcp\Archer.Mcp.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Terminal.Gui" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" />
+    <PackageReference Include="Microsoft.Orleans.Client" />
+    <PackageReference Include="Microsoft.Orleans.Server" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,33 @@
+<Project>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- CA1848 (use LoggerMessage source generators) and the related CA1873 (defer expensive
+         log-argument evaluation) are deliberately suppressed: the project uses plain logging
+         calls; the source-generator pattern adds boilerplate without measurable benefit at
+         this scale. -->
+    <NoWarn>$(NoWarn);CA1707;CA1716;CA2007;CA1848;CA1873</NoWarn>
+    <RootNamespace>Archer.$(MSBuildProjectName.Replace('Archer.', ''))</RootNamespace>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="$(MSBuildProjectName.EndsWith('.Tests'))">
+    <IsPackable>false</IsPackable>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <!-- CA1861 (hoist constant array arguments to static readonly fields) and CA1816
+         (call GC.SuppressFinalize from Dispose) aren't meaningful in test fixtures: the
+         arrays are allocated once per test method, and test classes don't have finalizers.
+         The remaining test-only style rules are similarly low-signal. -->
+    <NoWarn>$(NoWarn);CA1861</NoWarn>
+  </PropertyGroup>
+
+</Project>

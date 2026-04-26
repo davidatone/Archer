@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "archer-tui": {
+      "commandName": "Project",
+      "useExternalConsole": true,
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "Development",
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    }
+  }
+}

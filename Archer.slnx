@@ -1,0 +1,41 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+    <File Path="global.json" />
+    <File Path=".gitignore" />
+  </Folder>
+  <Folder Name="/src/" />
+  <Folder Name="/src/Orchestration/">
+    <Project Path="src/Aspire/Archer.AppHost.csproj" />
+  </Folder>
+  <Folder Name="/src/Core/">
+    <Project Path="src/Archer.Domain/Archer.Domain.csproj" />
+    <Project Path="src/Archer.Application/Archer.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/Infrastructure/">
+    <Project Path="src/Archer.Persistence/Archer.Persistence.csproj" />
+    <Project Path="src/Archer.Events/Archer.Events.csproj" />
+    <Project Path="src/Archer.Tools/Archer.Tools.csproj" />
+    <Project Path="src/Archer.Model/Archer.Model.csproj" />
+    <Project Path="src/Archer.Mcp/Archer.Mcp.csproj" />
+  </Folder>
+  <Folder Name="/src/Hosting/">
+    <Project Path="src/Archer.Actors/Archer.Actors.csproj" />
+    <Project Path="src/Archer.Host/Archer.Host.csproj" />
+  </Folder>
+  <Folder Name="/src/Presentation/">
+    <Project Path="src/Archer.Cli/Archer.Cli.csproj" />
+    <Project Path="src/Archer.Tui/Archer.Tui.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Archer.Tools.Tests/Archer.Tools.Tests.csproj" />
+    <Project Path="tests/Archer.Persistence.Tests/Archer.Persistence.Tests.csproj" />
+    <Project Path="tests/Archer.Actors.Tests/Archer.Actors.Tests.csproj" />
+    <Project Path="tests/Archer.Tui.Tests/Archer.Tui.Tests.csproj" />
+    <Project Path="tests/Archer.Mcp.Tests/Archer.Mcp.Tests.csproj" />
+    <Project Path="tests/Archer.Events.Tests/Archer.Events.Tests.csproj" />
+    <Project Path="tests/Archer.Host.Tests/Archer.Host.Tests.csproj" />
+    <Project Path="tests/Archer.Model.Tests/Archer.Model.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Archer.Domain\Archer.Domain.csproj" />
+    <ProjectReference Include="..\Archer.Application\Archer.Application.csproj" />
+    <ProjectReference Include="..\Archer.Actors\Archer.Actors.csproj" />
+    <ProjectReference Include="..\Archer.Persistence\Archer.Persistence.csproj" />
+    <ProjectReference Include="..\Archer.Events\Archer.Events.csproj" />
+    <ProjectReference Include="..\Archer.Tools\Archer.Tools.csproj" />
+    <ProjectReference Include="..\Archer.Model\Archer.Model.csproj" />
+    <ProjectReference Include="..\Archer.Mcp\Archer.Mcp.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Orleans.Server" />
+    <PackageReference Include="Microsoft.Orleans.Sdk" />
+    <PackageReference Include="Microsoft.Orleans.Serialization" />
+    <PackageReference Include="Microsoft.Orleans.Serialization.SystemTextJson" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+    <PackageReference Include="OpenTelemetry" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
+    <PackageReference Include="OpenTelemetry.Exporter.Console" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" />
+  </ItemGroup>
+
+</Project>

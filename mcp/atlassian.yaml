@@ -1,0 +1,31 @@
+name: atlassian
+description: |
+  Atlassian Rovo Remote MCP Server — Jira, Confluence, Compass via the cloud-hosted
+  Streamable HTTP endpoint. Authenticates via OAuth 2.1 with Dynamic Client
+  Registration (no client app needed in Atlassian admin). After registration:
+    archer mcp login atlassian
+  …opens a browser for the consent flow. After consent, tokens persist to the
+  encrypted credential store and refresh silently.
+
+  Prerequisites:
+    - Atlassian Cloud site with Jira / Confluence / Compass
+    - Your Atlassian admin must allow OAuth client registration (default on most cloud sites)
+
+transport:
+  type: streamable-http
+  endpoint: https://mcp.atlassian.com/v1/mcp
+
+auth:
+  type: oauth
+  # Leaving clientId blank → DCR is attempted at first connect. The client_id
+  # Atlassian assigns is cached in the credential store; subsequent connects
+  # reuse it without re-registering.
+
+timeouts:
+  connectSeconds: 60
+  callSeconds: 60
+
+retry:
+  maxAttempts: 3
+  initialDelayMs: 750
+  backoff: exponential

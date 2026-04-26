@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>archer</AssemblyName>
+    <RootNamespace>Archer.Cli</RootNamespace>
+    <NoWarn>$(NoWarn);CA1031</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="appsettings.Development.json" Condition="Exists('appsettings.Development.json')" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="appsettings.Development.json.example" CopyToOutputDirectory="Never" />
+    <Content Include="..\..\agents\*.yaml" Link="agents\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\mcp\*.yaml" Link="mcp\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Archer.Domain\Archer.Domain.csproj" />
+    <ProjectReference Include="..\Archer.Application\Archer.Application.csproj" />
+    <ProjectReference Include="..\Archer.Host\Archer.Host.csproj" />
+    <ProjectReference Include="..\Archer.Actors\Archer.Actors.csproj" />
+    <ProjectReference Include="..\Archer.Events\Archer.Events.csproj" />
+    <ProjectReference Include="..\Archer.Persistence\Archer.Persistence.csproj" />
+    <ProjectReference Include="..\Archer.Tools\Archer.Tools.csproj" />
+    <ProjectReference Include="..\Archer.Model\Archer.Model.csproj" />
+    <ProjectReference Include="..\Archer.Mcp\Archer.Mcp.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.CommandLine" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" />
+    <PackageReference Include="Microsoft.Orleans.Client" />
+    <PackageReference Include="Microsoft.Orleans.Server" />
+  </ItemGroup>
+
+</Project>
