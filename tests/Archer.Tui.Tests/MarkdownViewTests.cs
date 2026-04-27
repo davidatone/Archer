@@ -74,4 +74,33 @@ public class MarkdownViewTests
         Action act = () => view.ScrollToBottom();
         act.Should().NotThrow();
     }
+
+    [Fact]
+    public void ScrollByLines_does_not_throw_when_no_driver()
+    {
+        // The chat-pane forwards PageUp/PageDown from the focused TextField; these helpers
+        // must be safe to call before Terminal.Gui has laid out the view (Viewport.Width=0).
+        var view = new MarkdownView(MakePalette());
+        view.Text = "a\nb\nc";
+        Action act = () => view.ScrollByLines(-1);
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void ScrollByPages_does_not_throw_when_no_driver()
+    {
+        var view = new MarkdownView(MakePalette());
+        view.Text = string.Join('\n', Enumerable.Range(1, 50).Select(i => $"line {i}"));
+        Action act = () => view.ScrollByPages(+1);
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void ScrollToTop_does_not_throw_when_no_driver()
+    {
+        var view = new MarkdownView(MakePalette());
+        view.Text = string.Join('\n', Enumerable.Range(1, 50).Select(i => $"line {i}"));
+        Action act = () => view.ScrollToTop();
+        act.Should().NotThrow();
+    }
 }

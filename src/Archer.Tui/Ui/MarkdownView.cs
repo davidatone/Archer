@@ -83,6 +83,18 @@ public sealed class MarkdownView : View
     [NoCoverage]
     private void ScrollBy(int delta) => SetViewportY(Viewport.Y + delta);
 
+    /// <summary>Public scroll helper so the parent view can drive scrolling from anywhere
+    /// (e.g. forwarding PageUp/PageDown from a focused TextField). Positive = down.</summary>
+    public void ScrollByLines(int delta) => SetViewportY(Viewport.Y + delta);
+
+    /// <summary>Page-sized scroll. Used by the AgentTabView's input forwarding so users can
+    /// page through chat history without leaving the prompt.</summary>
+    public void ScrollByPages(int pages) =>
+        SetViewportY(Viewport.Y + pages * Math.Max(1, Viewport.Height - 1));
+
+    /// <summary>Jump to the very top of the chat content.</summary>
+    public void ScrollToTop() => SetViewportY(0);
+
     [NoCoverage]
     private void SetViewportY(int y)
     {

@@ -112,6 +112,7 @@ public sealed class McpToolSourceTests : IDisposable
         await using var source = new McpToolSource(_registry, _toolRegistry, pool, _credentials, NullLoggerFactory.Instance);
 
         await source.StartAsync(CancellationToken.None);
+        await source.StartupCompletion;
 
         pool.GetAsyncCalls.Should().Be(1, "auth: none servers should be eagerly connected");
         _toolRegistry.Definitions.Should().BeEmpty("connect failed, so no tools should land");
@@ -158,6 +159,117 @@ public sealed class McpToolSourceTests : IDisposable
         await act.Should().NotThrowAsync();
     }
 
+    [Fact]
+    public async Task StartAsync_returns_immediately_even_when_connect_blocks_indefinitely()
+    {
+        // Regression: the TUI used to block on launch because StartAsync awaited every
+        // server's enumerate-and-register. A slow/hanging MCP server (e.g. a 5xx OAuth
+        // authorize endpoint) would freeze the host. Fix: enumerations run in the background;
+        // StartAsync returns once the seeding loop finishes (microseconds).
+        await _registry.AddOrUpdateAsync(new McpServerConfig
+        {
+            Name = "slow-server",
+            Transport = new McpTransportConfig
+            {
+                Type = McpTransportType.StreamableHttp,
+                Endpoint = new Uri("http://localhost:1/mcp"),
+            },
+        });
+        var pool = new RecordingPool { HangOnGet = TimeSpan.FromSeconds(60) };
+        await using var source = new McpToolSource(_registry, _toolRegistry, pool, _credentials, NullLoggerFactory.Instance);
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        await source.StartAsync(CancellationToken.None);
+        sw.Stop();
+
+        sw.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(5),
+            "StartAsync must not block on slow MCP servers — it kicks off the connect sweep in the background.");
+    }
+
+    [Fact]
+    public async Task StartAsync_seeds_status_for_every_known_server()
+    {
+        // The UI should be able to render a row for every configured server immediately
+        // after startup, even before any connect attempt has settled.
+        await _registry.AddOrUpdateAsync(new McpServerConfig
+        {
+            Name = "needs-creds",
+            Auth = new McpAuthConfig { Type = McpAuthType.Bearer },
+            Transport = new McpTransportConfig
+            {
+                Type = McpTransportType.StreamableHttp,
+                Endpoint = new Uri("http://localhost:1/mcp"),
+            },
+        });
+        await _registry.AddOrUpdateAsync(new McpServerConfig
+        {
+            Name = "off-server",
+            Disabled = true,
+            Transport = new McpTransportConfig { Type = McpTransportType.Stdio, Command = "echo" },
+        });
+        await using var source = new McpToolSource(_registry, _toolRegistry, new RecordingPool(), _credentials, NullLoggerFactory.Instance);
+
+        await source.StartAsync(CancellationToken.None);
+        await source.StartupCompletion;
+
+        source.Statuses.Should().ContainKeys("needs-creds", "off-server");
+        source.Statuses["needs-creds"].State.Should().Be(McpConnectionState.NeedsCredentials);
+        source.Statuses["off-server"].State.Should().Be(McpConnectionState.Disabled);
+    }
+
+    [Fact]
+    public async Task StartAsync_marks_server_failed_when_connect_throws()
+    {
+        await _registry.AddOrUpdateAsync(new McpServerConfig
+        {
+            Name = "broken",
+            Transport = new McpTransportConfig
+            {
+                Type = McpTransportType.StreamableHttp,
+                Endpoint = new Uri("http://localhost:1/mcp"),
+            },
+        });
+        var pool = new RecordingPool { ThrowOnGet = new InvalidOperationException("simulated 500") };
+        await using var source = new McpToolSource(_registry, _toolRegistry, pool, _credentials, NullLoggerFactory.Instance);
+
+        await source.StartAsync(CancellationToken.None);
+        await source.StartupCompletion;
+
+        source.Statuses["broken"].State.Should().Be(McpConnectionState.Failed);
+        source.Statuses["broken"].Error.Should().Contain("simulated 500");
+    }
+
+    [Fact]
+    public async Task StatusChanged_event_fires_when_a_server_transitions()
+    {
+        await _registry.AddOrUpdateAsync(new McpServerConfig
+        {
+            Name = "open-server",
+            Transport = new McpTransportConfig
+            {
+                Type = McpTransportType.StreamableHttp,
+                Endpoint = new Uri("http://localhost:1/mcp"),
+            },
+        });
+        var pool = new RecordingPool { ThrowOnGet = new InvalidOperationException("boom") };
+        await using var source = new McpToolSource(_registry, _toolRegistry, pool, _credentials, NullLoggerFactory.Instance);
+
+        var transitions = new List<McpConnectionState>();
+        source.StatusChanged += s =>
+        {
+            if (s.ServerName == "open-server") lock (transitions) transitions.Add(s.State);
+        };
+
+        await source.StartAsync(CancellationToken.None);
+        await source.StartupCompletion;
+
+        // NotAttempted (seed) → Connecting → Failed (because pool throws).
+        transitions.Should().ContainInOrder(
+            McpConnectionState.NotAttempted,
+            McpConnectionState.Connecting,
+            McpConnectionState.Failed);
+    }
+
     /// <summary>
     /// Records pool calls so tests can assert on attempt counts. Throws on GetAsync (we
     /// can't synthesize a real <see cref="McpClient"/> without a transport, and the source's
@@ -169,9 +281,17 @@ public sealed class McpToolSourceTests : IDisposable
         public int EvictAsyncCalls;
         public Exception? ThrowOnGet { get; set; }
 
-        public ValueTask<McpClient> GetAsync(string serverName, CancellationToken cancellationToken = default)
+        /// <summary>If set, GetAsync awaits this delay (honouring the caller's CT) before
+        /// throwing. Used to simulate a slow/unreachable MCP server.</summary>
+        public TimeSpan? HangOnGet { get; set; }
+
+        public async ValueTask<McpClient> GetAsync(string serverName, CancellationToken cancellationToken = default)
         {
             Interlocked.Increment(ref GetAsyncCalls);
+            if (HangOnGet is { } delay)
+            {
+                await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
+            }
             throw ThrowOnGet ?? new InvalidOperationException("not configured");
         }
 

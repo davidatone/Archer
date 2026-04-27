@@ -1,3 +1,4 @@
+using Archer.Application.Mcp;
 using Archer.Domain.Mcp;
 using Archer.Tui.Ui;
 using FluentAssertions;
@@ -114,6 +115,38 @@ public class ServersDialogFormatTests
         creds.ApiKey!.Key.Should().Be("k");
         creds.ApiKey.Token.Should().Be("t");
         creds.BearerToken.Should().BeNull();
+    }
+
+    [Fact]
+    public void FormatConnectionState_returns_em_dash_when_status_unknown()
+    {
+        ServersDialog.FormatConnectionState(null).Should().Be("—");
+    }
+
+    [Theory]
+    [InlineData(McpConnectionState.NotAttempted, "pending")]
+    [InlineData(McpConnectionState.Connecting, "connecting…")]
+    [InlineData(McpConnectionState.Failed, "failed")]
+    [InlineData(McpConnectionState.NeedsCredentials, "no-creds")]
+    [InlineData(McpConnectionState.Disabled, "disabled")]
+    public void FormatConnectionState_uses_short_label_per_state(McpConnectionState state, string expected)
+    {
+        var status = new McpServerStatus
+        {
+            ServerName = "x", State = state, ToolCount = 0, UpdatedAtUtc = DateTimeOffset.UtcNow,
+        };
+        ServersDialog.FormatConnectionState(status).Should().Be(expected);
+    }
+
+    [Fact]
+    public void FormatConnectionState_includes_tool_count_when_connected()
+    {
+        var status = new McpServerStatus
+        {
+            ServerName = "x", State = McpConnectionState.Connected, ToolCount = 17,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+        };
+        ServersDialog.FormatConnectionState(status).Should().Be("ok (17)");
     }
 
     [Fact]

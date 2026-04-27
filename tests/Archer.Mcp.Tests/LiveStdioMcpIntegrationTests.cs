@@ -101,6 +101,7 @@ public sealed class LiveStdioMcpIntegrationTests : IDisposable
 
         using var cts = new CancellationTokenSource(ConnectTimeout);
         await source.StartAsync(cts.Token);
+        await source.StartupCompletion;
 
         // server-everything's tools should now appear in the IToolRegistry under wire names.
         toolRegistry.Definitions.Should().NotBeEmpty();

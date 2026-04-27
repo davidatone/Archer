@@ -127,7 +127,7 @@ public sealed class ServersDialog
     }
 
     [NoCoverage]
-    private static void RebuildRows(
+    private void RebuildRows(
         List<(McpServerConfig Config, bool HasCreds)> servers,
         System.Collections.ObjectModel.ObservableCollection<string> rows)
     {
@@ -137,19 +137,43 @@ public sealed class ServersDialog
             rows.Add(" (no MCP servers — drop a YAML in mcp/ or run `archer mcp add`)");
             return;
         }
+        var statuses = _source?.Statuses;
         foreach (var (cfg, has) in servers)
         {
-            rows.Add(FormatRow(cfg, has));
+            McpServerStatus? status = null;
+            statuses?.TryGetValue(cfg.Name, out status);
+            rows.Add(FormatRow(cfg, has, status));
         }
     }
 
-    internal static string FormatRow(McpServerConfig cfg, bool hasCreds)
+    internal static string FormatRow(McpServerConfig cfg, bool hasCreds, McpServerStatus? status = null)
     {
         var creds = FormatCredsMarker(cfg.Auth.Type, hasCreds);
         var transport = YamlMcpConfigLoader.TransportTypeToYaml(cfg.Transport.Type);
         var auth = YamlMcpConfigLoader.AuthTypeToYaml(cfg.Auth.Type);
         var endpoint = FormatEndpoint(cfg);
-        return $" {cfg.Name,-18} {transport,-16} {auth,-9} {creds,-3} {endpoint}";
+        var conn = FormatConnectionState(status);
+        return $" {cfg.Name,-18} {transport,-16} {auth,-9} {creds,-3} {conn,-14} {endpoint}";
+    }
+
+    /// <summary>
+    /// One-word badge for the connection state, plus tool count when connected. Padded so
+    /// columns line up. Returns "—" when status is unknown (e.g. McpToolSource not registered
+    /// in this host, like in CLI sub-commands).
+    /// </summary>
+    internal static string FormatConnectionState(McpServerStatus? status)
+    {
+        if (status is null) return "—";
+        return status.State switch
+        {
+            McpConnectionState.NotAttempted => "pending",
+            McpConnectionState.Connecting => "connecting…",
+            McpConnectionState.Connected => $"ok ({status.ToolCount})",
+            McpConnectionState.Failed => "failed",
+            McpConnectionState.NeedsCredentials => "no-creds",
+            McpConnectionState.Disabled => "disabled",
+            _ => "?",
+        };
     }
 
     /// <summary>ASCII-only credential markers so column widths line up under any terminal font.</summary>

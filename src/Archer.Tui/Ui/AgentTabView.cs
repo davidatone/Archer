@@ -105,7 +105,7 @@ public sealed class AgentTabView : View
         // the input for the "Prompt" title and the input's own border for visibility.
         var promptLabel = new Label
         {
-            Text = "Prompt — type a question, press Enter:",
+            Text = "Prompt — Enter to send · PgUp/PgDn (or Ctrl+Home/End) scroll the chat",
             X = 0,
             Y = Pos.AnchorEnd(3),
             Width = Dim.Fill(),
@@ -170,7 +170,37 @@ public sealed class AgentTabView : View
             _input.Text = string.Empty;
             e.Handled = true;
             _ = SendUserMessageAsync(text.Trim());
+            return;
         }
+
+        // Forward chat-pane scroll keys without stealing focus. The input is single-line so
+        // these have no native meaning here; forwarding them lets users page through long
+        // responses (e.g. a streamed code block) without leaving the prompt.
+        if (TryForwardScrollKey(e))
+        {
+            e.Handled = true;
+        }
+    }
+
+    [NoCoverage]
+    private bool TryForwardScrollKey(Key e)
+    {
+        switch (e.KeyCode)
+        {
+            case KeyCode.PageUp:
+                _chat.ScrollByPages(-1);
+                return true;
+            case KeyCode.PageDown:
+                _chat.ScrollByPages(+1);
+                return true;
+            case KeyCode.Home when e.IsCtrl:
+                _chat.ScrollToTop();
+                return true;
+            case KeyCode.End when e.IsCtrl:
+                _chat.ScrollToBottom();
+                return true;
+        }
+        return false;
     }
 
     [NoCoverage]

@@ -31,7 +31,29 @@ public sealed class McpToolSource : IHostedService, IAsyncDisposable
     private readonly ConcurrentDictionary<string, HashSet<string>> _toolsByServer =
         new(StringComparer.Ordinal);
 
+    /// <summary>Per-server connection state. Updated atomically as a connect attempt
+    /// progresses NotAttempted → Connecting → (Connected | Failed | NeedsCredentials | Disabled).</summary>
+    private readonly ConcurrentDictionary<string, McpServerStatus> _statuses =
+        new(StringComparer.Ordinal);
+
+    private readonly CancellationTokenSource _backgroundCts = new();
+    private Task _backgroundEnumeration = Task.CompletedTask;
+
     private Action<McpRegistryChange>? _registryHandler;
+
+    /// <summary>Snapshot of every known server's connection state.</summary>
+    public IReadOnlyDictionary<string, McpServerStatus> Statuses => _statuses;
+
+    /// <summary>Fires whenever a server's connection state transitions. Invoked on the
+    /// thread that performed the transition; subscribers must be thread-safe.</summary>
+    public event Action<McpServerStatus>? StatusChanged;
+
+    /// <summary>
+    /// Completes when the initial post-<see cref="StartAsync"/> connect sweep has finished
+    /// (every server settled to one of Connected / Failed / NeedsCredentials / Disabled).
+    /// Used by integration tests that need to assert on the post-startup state.
+    /// </summary>
+    public Task StartupCompletion => _backgroundEnumeration;
 
     public McpToolSource(
         IMcpServerRegistry serverRegistry,
@@ -52,33 +74,90 @@ public sealed class McpToolSource : IHostedService, IAsyncDisposable
         _logger = _loggerFactory.CreateLogger<McpToolSource>();
     }
 
-    public async Task StartAsync(CancellationToken cancellationToken)
+    public Task StartAsync(CancellationToken cancellationToken)
     {
         _registryHandler = HandleServerChange;
         _serverRegistry.Changed += _registryHandler;
 
-        // Enumerate currently-registered servers in parallel; failures don't stall startup.
+        // Seed every known server's status so the UI has something to render even before the
+        // first connect attempt completes. Disabled servers go straight to Disabled; auth-required
+        // servers without saved creds go to NeedsCredentials; the rest start at NotAttempted.
+        foreach (var s in _serverRegistry.All)
+        {
+            UpdateStatus(s.Name, s.Disabled ? McpConnectionState.Disabled : McpConnectionState.NotAttempted, 0, null);
+        }
+
+        // Kick off the connect/enumeration sweep in the background. We deliberately do *not*
+        // await — host startup must not block on a slow OAuth dance or an unreachable HTTP server.
+        // Each server's status transitions through the connecting state and settles to one of the
+        // terminal states defined in McpConnectionState; consumers subscribe via StatusChanged.
         var servers = _serverRegistry.All
             .Where(s => !s.Disabled)
             .ToList();
 
-        await Task.WhenAll(servers.Select(s => SafeEnumerateAsync(s, cancellationToken)))
-            .ConfigureAwait(false);
+        _backgroundEnumeration = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.WhenAll(servers.Select(s => SafeEnumerateAsync(s, _backgroundCts.Token)))
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                // Last-resort guard — individual SafeEnumerateAsync calls already trap their own
+                // exceptions, so reaching here means a bug in the orchestration itself.
+                _logger.LogError(ex, "Unexpected failure during initial MCP server enumeration sweep.");
+            }
+        }, _backgroundCts.Token);
+
+        return Task.CompletedTask;
     }
 
-    public Task StopAsync(CancellationToken cancellationToken)
+    public async Task StopAsync(CancellationToken cancellationToken)
     {
         if (_registryHandler is not null)
         {
             _serverRegistry.Changed -= _registryHandler;
             _registryHandler = null;
         }
-        return Task.CompletedTask;
+
+        // Cancel any still-running enumerations and give them a brief window to unwind.
+        await _backgroundCts.CancelAsync().ConfigureAwait(false);
+        try
+        {
+            await _backgroundEnumeration.WaitAsync(TimeSpan.FromSeconds(2), cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (TimeoutException)
+        {
+            // Best effort — we're shutting down anyway.
+        }
+        catch (OperationCanceledException) { /* expected */ }
+    }
+
+    private void UpdateStatus(string serverName, McpConnectionState state, int toolCount, string? error)
+    {
+        var status = new McpServerStatus
+        {
+            ServerName = serverName,
+            State = state,
+            ToolCount = toolCount,
+            Error = error,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+        };
+        _statuses[serverName] = status;
+        try { StatusChanged?.Invoke(status); }
+        catch (Exception ex)
+        {
+            // Subscriber threw — don't let a bad subscriber break the host.
+            _logger.LogWarning(ex, "McpToolSource.StatusChanged subscriber threw for '{Server}'.", serverName);
+        }
     }
 
     public async ValueTask DisposeAsync()
     {
         await _pool.DisposeAsync().ConfigureAwait(false);
+        _backgroundCts.Dispose();
     }
 
     /// <summary>
@@ -115,7 +194,11 @@ public sealed class McpToolSource : IHostedService, IAsyncDisposable
                     case McpRegistryChangeKind.Added:
                     case McpRegistryChangeKind.Updated:
                         await UnregisterServerToolsAsync(change.Server.Name).ConfigureAwait(false);
-                        if (!change.Server.Disabled)
+                        if (change.Server.Disabled)
+                        {
+                            UpdateStatus(change.Server.Name, McpConnectionState.Disabled, 0, null);
+                        }
+                        else
                         {
                             await SafeEnumerateAsync(change.Server, CancellationToken.None).ConfigureAwait(false);
                         }
@@ -123,6 +206,7 @@ public sealed class McpToolSource : IHostedService, IAsyncDisposable
 
                     case McpRegistryChangeKind.Removed:
                         await UnregisterServerToolsAsync(change.Server.Name).ConfigureAwait(false);
+                        _statuses.TryRemove(change.Server.Name, out _);
                         break;
                 }
             }
@@ -148,19 +232,29 @@ public sealed class McpToolSource : IHostedService, IAsyncDisposable
                     "MCP server '{Server}' requires {Auth} credentials — skipping eager connect. " +
                     "Run `archer mcp credentials set <server>` to configure.",
                     server.Name, server.Auth.Type.ToString().ToLowerInvariant());
+                UpdateStatus(server.Name, McpConnectionState.NeedsCredentials, 0, null);
                 return;
             }
         }
 
+        UpdateStatus(server.Name, McpConnectionState.Connecting, 0, null);
         try
         {
             await EnumerateAndRegisterAsync(server, ct).ConfigureAwait(false);
+            var toolCount = _toolsByServer.TryGetValue(server.Name, out var set) ? set.Count : 0;
+            UpdateStatus(server.Name, McpConnectionState.Connected, toolCount, null);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // Host shutdown — leave status alone; we're going away.
+            throw;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex,
                 "Failed to enumerate tools for MCP server '{Server}'. Tools from this server are " +
                 "unavailable until the next reload.", server.Name);
+            UpdateStatus(server.Name, McpConnectionState.Failed, 0, ex.Message);
         }
     }
 
