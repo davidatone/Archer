@@ -141,11 +141,32 @@ Defined in `MainWindow.cs:75-82`:
 | **F3**         | Interrupt the active turn on the current tab                     |
 | **Alt-F10**    | Quit                                                             |
 | **Tab**        | Cycle focus through tab → chat → todos → events → input          |
-| **Mouse wheel**| Scroll the chat pane (`MarkdownView.OnMouseEvent` lines 49-62)   |
+| **Mouse wheel**| Scroll the chat pane (`MarkdownView.OnMouseEvent`)               |
 | **Up/Down**    | Scroll chat by one line when the chat pane has focus             |
-| **PgUp/PgDn**  | Scroll chat by one viewport (`MarkdownView.OnKeyDown` lines 64-76)|
-| **Home/End**   | Scroll chat to top/bottom                                        |
-| **Enter**      | Send the input as a user message (`AgentTabView.cs:148-162`)     |
+| **PgUp/PgDn**  | Scroll chat by one viewport — works **even from the prompt**     |
+| **Ctrl-Home / Ctrl-End** | Jump chat to top / bottom (works from the prompt)      |
+| **Home/End**   | Scroll chat to top/bottom when chat pane has focus               |
+| **Enter**      | Send the input as a user message (`AgentTabView.cs:OnInputKey`)  |
+
+#### Scroll forwarding from the prompt
+
+The chat pane (`MarkdownView`) has its own `OnKeyDown` for `Up/Down/PgUp/PgDn/Home/End`,
+but those only fire when the chat pane has focus. While you're typing in the prompt,
+focus is on the `TextField` and a long agent response can scroll past the visible
+area before you can read it.
+
+To fix that, `AgentTabView.OnInputKey` (`AgentTabView.cs:159-204`) intercepts the
+TextField's key events and forwards `PgUp`, `PgDn`, `Ctrl-Home`, `Ctrl-End` to the
+chat pane via the public scroll helpers on `MarkdownView`:
+
+- `ScrollByLines(int delta)`
+- `ScrollByPages(int pages)`
+- `ScrollToTop()`
+- `ScrollToBottom()`
+
+These are safe to call before Terminal.Gui has laid out the view (they no-op when
+`Viewport.Width <= 0`). The `TextField` is single-line so `PgUp/PgDn/Ctrl-Home/End`
+have no native meaning inside it — forwarding doesn't break input.
 
 The same actions are available from the **File** and **Agent** menus
 (`MainWindow.cs:37-58`): `File → New agent`, `New agent in other repo…`,
@@ -183,6 +204,41 @@ shows up. Validation happens on `Open` (`MainWindow.cs:233-258`):
 from `IAgentStateStore.ListAgentsAsync` and reopens the selected one in a new
 tab.
 
+### The Servers dialog (`Servers → Manage MCP servers…`)
+
+`ServersDialog` (`src/Archer.Tui/Ui/ServersDialog.cs`) shows the live MCP server
+registry plus per-server **connection status**. The columns:
+
+```
+ NAME                TRANSPORT         AUTH       CREDS  STATUS         ENDPOINT
+ atlassian           streamable-http   oauth      *      failed         https://mcp.atlassian.com/v1/sse
+ memory              stdio             none       -      ok (9)         npx @modelcontextprotocol/server…
+ trello              stdio             api-key    *      connecting…    npx @modelcontextprotocol/server…
+```
+
+The `STATUS` column reflects the live `McpToolSource.Statuses` snapshot
+(`src/Archer.Mcp/Tools/McpToolSource.cs`):
+
+| Badge | `McpConnectionState` | Meaning |
+|-------|----------------------|---------|
+| `pending` | `NotAttempted` | Host hasn't tried yet (just launched). |
+| `connecting…` | `Connecting` | Connect/enumerate in flight. |
+| `ok (N)` | `Connected` | Connected; **N** tools registered. |
+| `failed` | `Failed` | Last attempt failed; hover (or check the log) for the error. |
+| `no-creds` | `NeedsCredentials` | Auth required, none stored — `archer mcp credentials set <name>` (or use **Set creds**). |
+| `disabled` | `Disabled` | The server's YAML has `disabled: true`. |
+| `—` | (no source registered) | This host doesn't have `McpToolSource` wired (e.g. some test contexts). |
+
+Buttons in the dialog: **Test**, **Login (OAuth)**, **Logout**, **Set creds**,
+**Refresh**, **Close**. After **Set creds** or **Login** the dialog re-enumerates
+the affected server, so you watch the status flip from `no-creds` → `connecting…`
+→ `ok (N)` in real time.
+
+**Crucial:** as of the recent refactor, MCP server enumeration runs in the
+background — the TUI launches in milliseconds even if a server is unreachable
+or its OAuth flow is hanging on a 5xx. See [INTERNALS.md](./INTERNALS.md) §
+"MCP startup and connection state" for the host-side flow.
+
 ### Live reasoning
 
 The chat pane is the only place the model's "thinking" is visible. The render
@@ -201,7 +257,30 @@ logic lives at `AgentTabView.cs:198-246`:
 
 Tool calls and turn-lifecycle events render to the **right-hand events pane**
 instead, with glyphs: `⏵` turn start, `✦` model start, `🔧` tool call, `↳`
-result, `⚠` failure, `⏹` end, `≡` summary (`AgentTabView.cs:198-246`).
+result, `⚠` failure, `⏹` end, `≡` summary (the dispatcher is `AgentTabView.RenderEvent`,
+the actual `event → render-instruction` mapping is in `EventRenderer.Render`).
+
+#### Pure-logic helpers (testable without booting Terminal.Gui)
+
+Terminal.Gui v2 cannot initialise inside the xUnit test process (a known
+`TypeLoadException` involving `Microsoft.TestPlatform.CoreUtilities`). Rather than
+ship `AgentTabView` as one big untestable lump, the pure formatting and routing
+logic is extracted into three companion classes that *are* unit-tested:
+
+| Class | What it does |
+|-------|--------------|
+| [`EventRenderer`](../src/Archer.Tui/Ui/EventRenderer.cs) | Pure mapping `AgentEvent → RenderInstruction` (which chat / events line to write, whether to clear/set the live reasoning block). The `RenderEvent` method on `AgentTabView` is now a thin "apply the instruction" wrapper. |
+| [`TextRenderer`](../src/Archer.Tui/Ui/TextRenderer.cs) | Chat-text composition: `ComposeChat`, `FormatTranscript`, `FormatTodo`, `FormatStatus`, `FormatReasoning`, `LabelForRole`. |
+| [`MainWindowHelpers`](../src/Archer.Tui/Ui/MainWindowHelpers.cs) | Default-agent picking, tab-label formatting, repo-path validation. |
+| [`ServersDialog.FormatRow / FormatEndpoint / FormatCredsMarker / FormatConnectionState / TryBuildCredentialsFromStrings`](../src/Archer.Tui/Ui/ServersDialog.cs) | The string formatters that drive the Servers dialog — the dialog itself is `[ExcludeFromCodeCoverage]` because its widgets need a driver. |
+
+`AgentTabView`, `MainWindow`, `ServersDialog`, and the View overrides on
+`MarkdownView` (drawing, scrolling math) are individually marked
+`[ExcludeFromCodeCoverage]` since they require a live `Application.Driver`. The
+testable helpers are at 100% coverage; the UI shells are sealed off explicitly.
+
+If you change rendering behaviour, **change `EventRenderer` / `TextRenderer` / the
+`*Helpers` class**, not the view methods, and the test suite catches regressions.
 
 ### Markdown support in the chat pane
 

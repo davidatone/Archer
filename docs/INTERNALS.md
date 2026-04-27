@@ -479,6 +479,84 @@ agents/ directory or pass --agent <id>."`
 
 ---
 
+## MCP startup and connection state
+
+External MCP servers (`mcp/*.yaml`) are wired into the host via
+[`McpServiceCollectionExtensions.AddArcherMcp`](../src/Archer.Mcp/McpServiceCollectionExtensions.cs)
+which registers `McpToolSource` as both a singleton and an `IHostedService`. On
+host start the framework calls
+[`McpToolSource.StartAsync`](../src/Archer.Mcp/Tools/McpToolSource.cs).
+
+### Non-blocking startup
+
+`StartAsync` does **not** await the connect-and-enumerate sweep. If it did, a slow
+or unreachable MCP server (e.g. an OAuth `/v1/authorize` returning 5xx) would block
+host startup and therefore freeze the TUI launch. Instead:
+
+1. **Synchronously**, `StartAsync` seeds a `McpServerStatus` for every registered
+   server: disabled servers go straight to `Disabled`; everything else starts as
+   `NotAttempted`. The UI can render rows immediately.
+2. **Asynchronously**, a background `Task` (`_backgroundEnumeration`) iterates
+   non-disabled servers and calls `SafeEnumerateAsync` per server in parallel.
+3. Each `SafeEnumerateAsync` updates that server's status through the lifecycle:
+   `NotAttempted → Connecting → Connected | Failed | NeedsCredentials`.
+4. `StopAsync` cancels the background sweep and waits up to 2 seconds for it to
+   unwind before returning.
+
+`McpToolSource.StartupCompletion` exposes the background task so integration
+tests can deterministically wait for the sweep to finish (see
+`tests/Archer.Mcp.Tests/McpToolSourceTests.cs`).
+
+### Status surface
+
+`McpToolSource.Statuses` is a live `IReadOnlyDictionary<string, McpServerStatus>`
+(see [`McpServerStatus`](../src/Archer.Application/Mcp/McpServerStatus.cs)):
+
+```csharp
+public sealed record McpServerStatus
+{
+    public required string ServerName;
+    public required McpConnectionState State;   // NotAttempted | NeedsCredentials | Connecting
+                                                // | Connected | Failed | Disabled
+    public required int ToolCount;              // 0 unless Connected
+    public string? Error;                       // populated when State == Failed
+    public required DateTimeOffset UpdatedAtUtc;
+}
+```
+
+Plus a `StatusChanged` event for push notifications. The TUI's Servers dialog
+([`ServersDialog`](../src/Archer.Tui/Ui/ServersDialog.cs)) reads this snapshot to
+render the **STATUS** column, and `ServersDialog.FormatConnectionState` is a pure
+function turning `McpServerStatus?` into the badge string (`pending`,
+`connecting…`, `ok (N)`, `failed`, `no-creds`, `disabled`, `—`). See
+[TUI.md § The Servers dialog](./TUI.md#the-servers-dialog-servers--manage-mcp-servers).
+
+### Failure isolation
+
+A connect/enumerate failure on one server **does not affect** any other server:
+
+- `SafeEnumerateAsync` wraps `EnumerateAndRegisterAsync` in `try/catch`; failure
+  logs an error and updates that server's status to `Failed` with the exception
+  message. The host keeps running and other servers continue to enumerate.
+- Mid-startup cancellation (host shutdown while a server is connecting) is
+  re-thrown via the `OperationCanceledException` guard in `SafeEnumerateAsync`
+  so the background task unwinds promptly.
+- A server stuck on a `/authorize` 5xx will appear as `Failed` in the UI; the
+  user can retry via **Login (OAuth)** in the Servers dialog (which calls
+  `RefreshAsync` to evict cached state and re-attempt).
+
+### When tools become visible
+
+A successfully-connected server's tools register with the global `IToolRegistry`
+through `EnumerateAndRegisterAsync`. The agent's `IAgentContextBuilder` then
+filters them through the agent definition's `tools:` whitelist on every turn —
+so tools that come online *during* a session become available on the agent's
+next turn without restart, as long as the agent's whitelist already covers them
+(by exact name or `<server>.*` wildcard). See
+[AGENT_DEFINITIONS.md § tools](./AGENT_DEFINITIONS.md) for the whitelist syntax.
+
+---
+
 ## Cross-references
 
 - [TOOLS.md](./TOOLS.md) — built-in tools, schemas, and how to add new ones.

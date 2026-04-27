@@ -5,11 +5,16 @@ agents that reason, call tools, and coordinate over a Microsoft Orleans actor mo
 streaming events, durable per-agent state, hot-reload of agent profiles, and OpenTelemetry
 out of the box.
 
-> ⚠ **Status:** prototype. The plumbing is solid (Domain/Application/Infrastructure
-> separation, fenced-turn semantics, atomic-write persistence, percentage-based context
-> windows, OTel spans/metrics/logs) but the surface area is intentionally small — one
-> reference agent (`code-scout`) over Azure OpenAI's Responses API, four built-in tools,
-> a CLI and a Terminal.Gui TUI.
+> ⚠ **Status:** prototype, but well-tested. ~9.3k LOC of source, 436 tests across
+> eight test projects, ~84% line coverage / ~76% branch coverage, and a green
+> SonarCloud quality gate (0 bugs / 0 vulnerabilities / 0 code smells / 0 hotspots /
+> A across reliability, security, and maintainability). The plumbing is solid
+> (Domain/Application/Infrastructure separation, fenced-turn semantics, atomic-write
+> persistence, percentage-based context windows, OTel spans/metrics/logs, MCP with
+> non-blocking startup) but the surface area is intentionally small — one reference
+> agent (`code-scout`) over Azure OpenAI's Responses API, four built-in tools, four
+> MCP integrations (`memory`, `trello`, `simplemem`, `atlassian`), a CLI and a
+> Terminal.Gui TUI.
 
 ## Why this exists
 
@@ -160,9 +165,12 @@ TUI doesn't reach past Application interfaces.
 | [TOOLS.md](docs/TOOLS.md) | Built-in tools (`list_files`, `grep`, `search_pattern`, `todo_list`) + adding new |
 | [CONFIGURATION.md](docs/CONFIGURATION.md) | `appsettings.json` sections + env vars + Azure OpenAI endpoint shapes |
 | [CLI.md](docs/CLI.md) | `archer` command reference (new / resume / status / events / agents / list / REPL) |
-| [TUI.md](docs/TUI.md) | `archer-tui` keybindings, panes, Markdown rendering, iTerm2 mouse notes |
+| [TUI.md](docs/TUI.md) | `archer-tui` keybindings, panes, Markdown rendering, iTerm2 mouse notes, Servers dialog |
+| [MEMORY.md](docs/MEMORY.md) | The four memory layers (transcript / recent-window / summaries / blob store) + the MCP knowledge-graph server |
 | [TELEMETRY.md](docs/TELEMETRY.md) | OTel ActivitySource, Meter, instruments, tag keys, dashboards |
 | [ASPIRE.md](docs/ASPIRE.md) | Running under .NET Aspire — one command, dashboard included |
+| [CONTRIBUTING.md](docs/CONTRIBUTING.md) | Build, test, coverage, Sonar workflow + coding conventions |
+| [proposals/multi-agent-sdlc/](docs/proposals/multi-agent-sdlc/README.md) | RFC: layering a workflow runtime on top of agents — solo / critic / peer-swarm modes, multi-repo workspace, ChatDev-style SDLC |
 
 ## Key design choices
 

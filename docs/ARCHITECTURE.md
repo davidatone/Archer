@@ -412,8 +412,25 @@ without restart.
 
 ## Further reading
 
-- `/docs/INTERNALS.md` — implementation details: serializer setup, Orleans
-  deadlines, secret redaction, RepoPathResolver, YAML schema specifics.
-- `/docs/TELEMETRY.md` — `ArcherTelemetry` source/meter inventory, OTel
+- [INTERNALS.md](./INTERNALS.md) — implementation details: serializer setup, Orleans
+  deadlines, secret redaction, RepoPathResolver, YAML schema specifics, and the
+  MCP startup / connection-state lifecycle.
+- [MEMORY.md](./MEMORY.md) — the four memory layers an agent uses (transcript,
+  recent-window selection, summaries, blob store) plus the MCP knowledge-graph
+  server. Read this if you're wondering "what does the model actually see this turn?".
+- [TELEMETRY.md](./TELEMETRY.md) — `ArcherTelemetry` source/meter inventory, OTel
   configuration knobs (`Otel:Endpoint`, `Otel:Protocol`,
   `Otel:ConsoleExporter`), and example collector setups.
+- [CONTRIBUTING.md](./CONTRIBUTING.md) — the build / test / coverage / Sonar
+  workflow for new contributors.
+
+### Forward-looking design
+
+- [proposals/multi-agent-sdlc/](./proposals/multi-agent-sdlc/README.md) — RFC for
+  layering a workflow runtime on top of the agent layer described above. Adds
+  three first-class collaboration modes (solo, critic, peer/swarm), multi-repo
+  workspaces, structured artifacts (PRD / design docs / etc.) and a DAG runtime,
+  while keeping every existing piece (`IArcherAgentGrain`, `IModelTurnRunner`,
+  `IToolRegistry`, MCP, persistence, OTel) unchanged. Read this if you want the
+  big picture of where the framework is headed; read the architecture above
+  first if you're trying to understand what's there *today*.
