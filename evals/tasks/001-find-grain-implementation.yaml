@@ -1,0 +1,71 @@
+# Slice-0 eval task: can the agent find the ArcherAgentGrain implementation?
+#
+# This is the minimum that demonstrates the eval idea end-to-end:
+#   - one prompt
+#   - one agent
+#   - deterministic predicates (must / must-not cite)
+#   - an LLM judge with a rubric
+#   - multiple trials so we report a pass-rate, not a single result
+#
+# To run: ./evals/run.py evals/tasks/001-find-grain-implementation.yaml
+
+id: 001-find-grain-implementation
+description: Locate the implementation of ArcherAgentGrain and summarise its core methods.
+
+# Slice-0 simplifications:
+#   - single agent (not a matrix) — slice 1 introduces multi-agent comparison
+#   - live repo (not a frozen fixture) — slice 1 introduces sha256-pinned tarballs
+#   - no robustness variants — slice 2 introduces interrupt-mid-turn etc.
+agent: code-scout
+repo: .
+
+prompt: |
+  Where is the ArcherAgentGrain class implemented? Give the exact file path
+  and briefly describe the methods that handle InitializeAsync,
+  AddUserMessageAsync, and CommitFinalAnswerIfStillActiveAsync.
+
+# Deterministic guardrails — cheap, fast, fail-fast.
+expected:
+  must-cite-files:
+    - src/Archer.Actors/Grains/ArcherAgentGrain.cs
+  must-not-cite-files:
+    # Adjacent files the agent could plausibly hallucinate.
+    - src/Archer.Actors/Grains/TurnWorkerGrain.cs
+    - src/Archer.Application/Agents/IAgentDefinitionRegistry.cs
+  must-mention:
+    - InitializeAsync
+    - AddUserMessageAsync
+    - CommitFinalAnswerIfStillActiveAsync
+
+# The integral grader — the judge decides whether the answer is actually correct.
+# Deterministic guardrails (above) are necessary but not sufficient: an answer can
+# include the right strings and still be wrong/misleading. The judge reads the
+# answer in context of the prompt and rubric and gives a verdict.
+judge:
+  model: gpt-5-codex             # must differ from the agent's model
+  rubric: |
+    The agent was asked to locate the ArcherAgentGrain class and describe three
+    of its methods. Score the response on a 0-5 scale considering:
+
+    - Accuracy: does the cited file path actually contain the class? (0=wrong file,
+      5=correct path with line range or directory context)
+    - Method coverage: are all three methods (InitializeAsync, AddUserMessageAsync,
+      CommitFinalAnswerIfStillActiveAsync) discussed and described correctly?
+      (0=none/wrong, 5=all three accurately summarised)
+    - Precision: are there any hallucinated method names, signatures, or APIs that
+      don't exist in the codebase? (0=multiple inventions, 5=fully grounded)
+    - Conciseness bonus: is the answer to the point without unnecessary padding?
+      (subtract 1 from final score if the response is rambling)
+
+    Pass if final score >= 4. Output JSON only:
+    {"score": <int 0-5>, "verdict": "pass"|"fail", "reasoning": "<one paragraph>"}
+
+# Multi-trial because LLMs are random. Cell passes if pass-rate >= required.
+trials: 3
+required-pass-rate: 0.66
+
+# Per-trial budget. Hard caps; trial that exceeds any of these auto-fails.
+budget:
+  max-output-tokens: 30000
+  max-tool-calls: 20
+  max-wall-seconds: 180

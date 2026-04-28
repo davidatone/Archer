@@ -170,6 +170,7 @@ TUI doesn't reach past Application interfaces.
 | [TELEMETRY.md](docs/TELEMETRY.md) | OTel ActivitySource, Meter, instruments, tag keys, dashboards |
 | [ASPIRE.md](docs/ASPIRE.md) | Running under .NET Aspire — one command, dashboard included |
 | [CONTRIBUTING.md](docs/CONTRIBUTING.md) | Build, test, coverage, Sonar workflow + coding conventions |
+| [proposals/eval-framework/](docs/proposals/eval-framework/README.md) | RFC: agent eval harness — eval suites colocated with agents (`agents/<id>.evals.yaml`), frozen fixtures, multi-agent-config matrix, multi-trial pass-rate, robustness variants, deterministic guardrails + integral LLM judge. Working Python prototype at `evals/run.py`; slice 1 ports it to C#. |
 | [proposals/multi-agent-sdlc/](docs/proposals/multi-agent-sdlc/README.md) | RFC: layering a workflow runtime on top of agents — solo / critic / peer-swarm modes, multi-repo workspace, ChatDev-style SDLC |
 
 ## Key design choices

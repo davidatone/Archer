@@ -12,7 +12,8 @@ load-bearing design choices before slice 1 starts.
 
 | Proposal | Status | What's in it |
 |----------|--------|--------------|
-| [multi-agent-sdlc/](./multi-agent-sdlc/README.md) | proposal | Workflow runtime layered on top of agents. Solo / critic / peer-swarm phase modes. Multi-repo workspace. Structured artifact authoring. Designed-for-DAG runtime that ships linear-only in v1. Reference walkthrough: requirement → PRD → architect → 4-peer design review. |
+| [eval-framework/](./eval-framework/README.md) | proposal | A small reproducible test harness for measuring agent quality. Eval suites colocated with agents (`agents/<id>.evals.yaml`). Frozen-fixture tasks × per-agent-config matrix × multi-trial pass-rate. Deterministic guardrails (citation / anti-citation / lexical / tool-call audit) **plus an integral LLM judge — every task ships a rubric**. Robustness variants (interrupt / kill-host / delete-file) turn architectural claims into empirical assertions. **Triggered by an external review** that flagged "infrastructure tests do not prove agent quality". A working Python prototype at `evals/run.py` proves the concept; slice 1 ports it to C#. |
+| [multi-agent-sdlc/](./multi-agent-sdlc/README.md) | proposal | Workflow runtime layered on top of agents. Solo / critic / peer-swarm phase modes. Multi-repo workspace. Structured artifact authoring. Designed-for-DAG runtime that ships linear-only in v1. Reference walkthrough: requirement → PRD → architect → 4-peer design review. **Downstream of `eval-framework`** — a workflow runtime without an eval suite is the reviewer's worst case scenario ("beautiful machine for producing mediocre artifacts"). |
 
 ### When to write a proposal vs. just doing it
 

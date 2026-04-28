@@ -426,6 +426,12 @@ without restart.
 
 ### Forward-looking design
 
+- [proposals/eval-framework/](./proposals/eval-framework/README.md) — RFC for
+  measuring agent *quality* (not just framework correctness). Frozen-fixture
+  tasks × per-agent-config matrix × multi-trial pass-rate. Robustness variants
+  (interrupt, kill-host, delete-file) turn the architectural durability/fence
+  claims into empirical assertions. **Read first** if you're wondering whether
+  the architecture's claimed strengths actually hold up under measurement.
 - [proposals/multi-agent-sdlc/](./proposals/multi-agent-sdlc/README.md) — RFC for
   layering a workflow runtime on top of the agent layer described above. Adds
   three first-class collaboration modes (solo, critic, peer/swarm), multi-repo

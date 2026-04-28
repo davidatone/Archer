@@ -22,6 +22,11 @@ coverage-out/
 coverage-report/
 coverage-html/
 
+# Eval result artifacts (per-run JSON dumps; the scripts and tasks are committed)
+evals/results/
+__pycache__/
+*.pyc
+
 # Local secrets - keep .example committed, real file untracked
 appsettings.Development.json
 appsettings.Local.json
